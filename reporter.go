@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/buger/gor/requestfiles"
+	"github.com/dt/gor_request_files/requestfiles"
 )
 
 type DiffReporter struct {
