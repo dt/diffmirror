@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cyberdelia/go-metrics-graphite"
@@ -12,6 +13,7 @@ import (
 
 type Stats struct {
 	registry metrics.Registry
+	lock     sync.Mutex
 }
 
 func (t *Stats) Gauge(name string, value int) {

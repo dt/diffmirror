@@ -3,12 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"fmt"
-	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
-	"net/http/httputil"
 	"sync"
 	"time"
 )
@@ -43,6 +39,17 @@ func NewMirror(s *Settings) *Mirror {
 	return m
 }
 
+type MirrorResp struct {
+	status  int
+	err     error
+	payload string
+	rtt     time.Duration
+}
+
+func (m *MirrorResp) isErr() bool {
+	return m.err != nil || m.status/100 == 5
+}
+
 func (m *Mirror) worker() {
 	for {
 		m.unpackAndHandle(<-m.queue)
@@ -68,59 +75,16 @@ func (m *Mirror) unpackAndHandle(raw []byte) {
 }
 
 func (m *Mirror) mirror(reqA, reqB *http.Request, raw []byte) {
-	startA := time.Now()
-	respA, statusA, errA := m.send(reqA, m.settings.hostA, m.settings.compareBodyOnly)
-	rttA := time.Now().Sub(startA)
+	resA := sendAndTime(reqA, m.settings.hostA, m.settings.compareBodyOnly)
+	resB := sendAndTime(reqB, m.settings.hostB, m.settings.compareBodyOnly)
 
-	startB := time.Now()
-	respB, statusB, errB := m.send(reqB, m.settings.hostB, m.settings.compareBodyOnly)
-	rttB := time.Now().Sub(startB)
-
-	if errA != nil {
-		log.Printf("error mirroring request: %s", errA)
+	if resA.err != nil {
+		log.Printf("error mirroring request: %s", resA.err)
 	}
 
-	if errB != nil {
-		log.Printf("error mirroring request: %s", errB)
+	if resB.err != nil {
+		log.Printf("error mirroring request: %s", resB.err)
 	}
 
-	m.reporter.Compare(reqA, raw, statusA, statusB, respA, respB, errA, errB, rttA, rttB)
-}
-
-func (m *Mirror) send(r *http.Request, addr string, bodyOnly bool) (string, int, error) {
-	c, err := net.Dial("tcp", addr)
-	if err != nil {
-		return "", -1, fmt.Errorf("error establishing tcp connection to %s: %s", addr, err)
-	}
-	defer c.Close()
-
-	if err = r.Write(c); err != nil {
-		return "", -1, fmt.Errorf("error initializing write to %s: %s", addr, err)
-	}
-
-	read := bufio.NewReader(c)
-	resp, err := http.ReadResponse(read, nil)
-
-	if err != nil {
-		return "", -1, fmt.Errorf("error reading response from %s: %s", addr, err)
-	}
-
-	defer resp.Body.Close()
-
-	if bodyOnly {
-		contents, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			panic(err)
-		}
-		return string(contents), resp.StatusCode, nil
-	} else {
-		delete(resp.Header, "Date")
-		respString, err := httputil.DumpResponse(resp, true)
-
-		if err != nil {
-			return "", -1, fmt.Errorf("error dumping response from %s: %s", addr, err)
-		}
-
-		return string(respString), resp.StatusCode, nil
-	}
+	m.reporter.Compare(reqA, raw, resA, resB)
 }

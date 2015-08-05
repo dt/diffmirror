@@ -70,34 +70,30 @@ func (d *DiffReporter) writeDiffs() {
 	}
 }
 
-func isErr(err error, status int) bool {
-	return err != nil || status/100 == 5
-}
-
-func (d *DiffReporter) Compare(req *http.Request, raw []byte, statusA, statusB int, respA, respB string, rawErrA, rawErrB error, rttA, rttB time.Duration) {
+func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *MirrorResp) {
 	atomic.AddInt64(&d.total, 1)
 	d.stats.Inc(d.statNames.total)
 
-	errA := isErr(rawErrA, statusA)
-	errB := isErr(rawErrB, statusB)
+	errA := resA.isErr()
+	errB := resB.isErr()
 
 	if errA {
 		d.stats.Inc(d.statNames.errA)
 	} else {
-		d.stats.Timing(d.statNames.rttA, rttA)
+		d.stats.Timing(d.statNames.rttA, resA.rtt)
 	}
 
 	if errB {
 		d.stats.Inc(d.statNames.errB)
 	} else {
-		d.stats.Timing(d.statNames.rttB, rttB)
+		d.stats.Timing(d.statNames.rttB, resB.rtt)
 	}
 
 	if (errA && errB) || (d.settings.ignoreErrors && (errA || errB)) {
 		return
 	}
 
-	if !errA && !errB && respA == respB {
+	if !errA && !errB && resA.payload == resB.payload {
 		d.stats.Inc(d.statNames.match)
 		return
 	}
@@ -105,8 +101,8 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, statusA, statusB i
 	atomic.AddInt64(&d.diff, 1)
 	d.stats.Inc(d.statNames.diff)
 
-	sizeA := len(respA)
-	sizeB := len(respB)
+	sizeA := len(resA.payload)
+	sizeB := len(resB.payload)
 
 	limit := sizeA
 	if sizeA > sizeB {
@@ -115,7 +111,7 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, statusA, statusB i
 
 	i := 0
 	for i < limit {
-		if respA[i] != respB[i] {
+		if resA.payload[i] != resB.payload[i] {
 			break
 		}
 		i++
@@ -144,15 +140,15 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, statusA, statusB i
 		atomic.LoadInt64(&d.total),
 		req.Method,
 		req.RequestURI,
-		statusA, statusB,
+		resA.status, resB.status,
 		sizeA, sizeB, sizeA-sizeB,
-		ms(rttA), ms(rttB), ms(rttA-rttB),
+		ms(resA.rtt), ms(resB.rtt), ms(resA.rtt-resB.rtt),
 		start,
 		end,
 		d.settings.nameA,
-		string(respA[start:end]),
+		string(resA.payload[start:end]),
 		d.settings.nameB,
-		string(respB[start:end]),
+		string(resB.payload[start:end]),
 	)
 
 	if d.requestsWriter != nil {
