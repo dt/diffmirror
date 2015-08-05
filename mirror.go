@@ -75,8 +75,14 @@ func (m *Mirror) unpackAndHandle(raw []byte) {
 }
 
 func (m *Mirror) mirror(reqA, reqB *http.Request, raw []byte) {
-	resA := sendAndTime(reqA, m.settings.hostA, m.settings.compareBodyOnly)
-	resB := sendAndTime(reqB, m.settings.hostB, m.settings.compareBodyOnly)
+	backA := make(chan *MirrorResp)
+	backB := make(chan *MirrorResp)
+
+	go asyncSend(backA, reqA, m.settings.hostA, m.settings.compareBodyOnly)
+	go asyncSend(backB, reqB, m.settings.hostB, m.settings.compareBodyOnly)
+
+	resA := <-backA
+	resB := <-backB
 
 	if resA.err != nil {
 		log.Printf("error mirroring request: %s", resA.err)

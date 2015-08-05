@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+func asyncSend(back chan *MirrorResp, r *http.Request, addr string, bodyOnly bool) {
+	back <- sendAndTime(r, addr, bodyOnly)
+}
+
 func sendAndTime(r *http.Request, addr string, bodyOnly bool) *MirrorResp {
 	start := time.Now()
 	res := send(r, addr, bodyOnly)
