@@ -16,8 +16,11 @@ type DiffReporter struct {
 
 	settings *Settings
 
-	stats     *Stats
-	statNames StatNames
+	bucket *Bucketer
+
+	stats             *Stats
+	statNames         StatNames
+	detailedStatNames map[string]*StatNames
 
 	// If writing out diffs, need a queue to serialize to a single writer.
 	outQueue       chan []byte
@@ -63,6 +66,25 @@ func NewDiffReporter(s *Settings, stats *Stats) (d *DiffReporter) {
 	return r
 }
 
+func (d *DiffReporter) statNamesFor(bucket string) *StatNames {
+	found, ok := d.detailedStatNames[bucket]
+	if ok {
+		return found
+	}
+
+	found = &StatNames{
+		total: "diffing." + bucket + ".total",
+		match: "diffing." + bucket + ".match",
+		diff:  "diffing." + bucket + ".diff",
+		errA:  "diffing." + bucket + ".err." + d.settings.nameA,
+		errB:  "diffing." + bucket + ".err." + d.settings.nameB,
+		rttA:  "diffing." + bucket + ".rtt." + d.settings.nameA,
+		rttB:  "diffing." + bucket + ".rtt." + d.settings.nameB,
+	}
+	d.detailedStatNames[bucket] = found
+	return found
+}
+
 func (d *DiffReporter) writeDiffs() {
 	for {
 		req := <-d.outQueue
@@ -72,21 +94,45 @@ func (d *DiffReporter) writeDiffs() {
 
 func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *MirrorResp) {
 	atomic.AddInt64(&d.total, 1)
+
+	var bucketStats *StatNames
+	if d.settings.bucketer != nil {
+		bucket := d.settings.bucketer.Bucket(req, raw)
+		if bucket != "" {
+			bucketStats = d.statNamesFor(bucket)
+		}
+	}
+
 	d.stats.Inc(d.statNames.total)
+	if bucketStats != nil {
+		d.stats.Inc(bucketStats.total)
+	}
 
 	errA := resA.isErr()
 	errB := resB.isErr()
 
 	if errA {
 		d.stats.Inc(d.statNames.errA)
+		if bucketStats != nil {
+			d.stats.Inc(bucketStats.errA)
+		}
 	} else {
 		d.stats.Timing(d.statNames.rttA, resA.rtt)
+		if bucketStats != nil {
+			d.stats.Timing(bucketStats.rttA, resB.rtt)
+		}
 	}
 
 	if errB {
 		d.stats.Inc(d.statNames.errB)
+		if bucketStats != nil {
+			d.stats.Inc(bucketStats.errB)
+		}
 	} else {
 		d.stats.Timing(d.statNames.rttB, resB.rtt)
+		if bucketStats != nil {
+			d.stats.Timing(bucketStats.rttB, resB.rtt)
+		}
 	}
 
 	if (errA && errB) || (d.settings.ignoreErrors && (errA || errB)) {
@@ -95,12 +141,17 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *Mirror
 
 	if !errA && !errB && resA.payload == resB.payload {
 		d.stats.Inc(d.statNames.match)
+		if bucketStats != nil {
+			d.stats.Inc(bucketStats.match)
+		}
 		return
 	}
 
 	atomic.AddInt64(&d.diff, 1)
 	d.stats.Inc(d.statNames.diff)
-
+	if bucketStats != nil {
+		d.stats.Inc(bucketStats.diff)
+	}
 	sizeA := len(resA.payload)
 	sizeB := len(resB.payload)
 

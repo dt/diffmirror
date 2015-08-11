@@ -24,6 +24,8 @@ type Settings struct {
 	ignoreErrors    bool
 	compareBodyOnly bool
 
+	bucketer Bucketer
+
 	printStats     bool
 	graphiteHost   string
 	graphitePrefix string
