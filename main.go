@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -24,7 +25,9 @@ type Settings struct {
 	ignoreErrors    bool
 	compareBodyOnly bool
 
-	bucketer Bucketer
+	bucketer   Bucketer
+	bucketPath string
+	bucketBody string
 
 	printStats     bool
 	graphiteHost   string
@@ -41,6 +44,22 @@ func extractAlias(s, defaultValue string) (string, string) {
 	return defaultValue, s
 }
 
+func intPair(s string) (int, int, error) {
+	parts := strings.Split(s, ":")
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("Must provide 'start:end'")
+	}
+	start, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, err
+	}
+	end, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	return start, end, nil
+}
+
 func getSettings() *Settings {
 	s := new(Settings)
 
@@ -50,6 +69,8 @@ func getSettings() *Settings {
 
 	flag.BoolVar(&s.printStats, "stats", true, "print stats to console periodically")
 	flag.StringVar(&s.graphiteHost, "graphite", "", "address of graphite receiver for stats")
+	flag.StringVar(&s.bucketPath, "bucket-by-path-parts", "", "start:end offsets for path parts (split by /) for bucketing")
+	flag.StringVar(&s.bucketBody, "bucket-by-body-slice", "", "start:end offsets to slice from the body for bucketing")
 	flag.StringVar(&s.graphitePrefix, "graphite-prefix", "", "prefix for graphite writes")
 
 	flag.BoolVar(&s.ignoreErrors, "ignore-errors", true, "ignore network errors and 5xx responses")
@@ -61,6 +82,26 @@ func getSettings() *Settings {
 	}
 
 	flag.Parse()
+
+	if s.bucketBody != "" && s.bucketPath != "" {
+		log.Fatalln("only one bucketing may be used")
+	}
+
+	if s.bucketBody != "" {
+		start, end, err := intPair(s.bucketBody)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		s.bucketer = &BodySlicer{start, end}
+	}
+
+	if s.bucketPath != "" {
+		start, end, err := intPair(s.bucketBody)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		s.bucketer = &PathSlicer{start, end}
+	}
 
 	if len(flag.Args()) < 3 {
 		flag.Usage()
