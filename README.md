@@ -47,6 +47,24 @@ print stats to console periodically (default true)
 ####  `--workers 10`
 number of worker threads (default 10)
 
+## Bucketing
+
+Requests can be categorized into buckets (based on splittin the path or various ways to slice a string out of the body), and then per-bucket stats recorded in addition to the overall stats.
+
+#### Bucket by request path `--bucket-by-path-parts start:end`
+Splits the request URI on `/` and joins parts `start` through `end` (with "_").
+
+### Extracting bucket names from the body
+
+#### Fixed byte range (start and end) `--bucket-by-body-slice start:end`
+Reads string from bytes `start` to `end`.
+
+#### Null-terminated string, starting at offset `--bucket-by-cstring pos`
+Reads a c-style string, starting at `pos`, until a null byte.
+
+#### String prefixed by length int `--bucket-by-strlen pos`
+Reads an int `l` at `pos` offset and interprets the following `l` bytes as the bucket string.
+
 # Credits
 diffmirror is developed at [Foursquare](/foursquare) and was heavily inspired by [gor](/buger/gor) and [clever/http-science](/clever/http-science).
 
