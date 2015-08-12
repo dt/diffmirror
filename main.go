@@ -129,6 +129,10 @@ func getSettings() *Settings {
 		log.Fatalln("cannot specify both require-bucket and exclude-bucket")
 	}
 
+	if (s.excludeBucket != "" || s.requireBucket != "") && s.bucketer == nil {
+		log.Fatalln("filtering by buckets requires a bucketer be configured.")
+	}
+
 	if len(flag.Args()) < 3 {
 		flag.Usage()
 		os.Exit(-1)

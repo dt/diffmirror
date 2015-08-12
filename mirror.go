@@ -69,7 +69,11 @@ func (m *Mirror) unpackAndHandle(raw []byte) {
 
 	bucket := ""
 	if m.settings.bucketer != nil {
-		bucket = m.settings.bucketer.Bucket(reqA, raw)
+		crlfcrlf := []byte("\r\n\r\n")
+		e := bytes.Index(raw, crlfcrlf)
+		if e > -1 {
+			bucket = m.settings.bucketer.Bucket(reqA, raw[e+len(crlfcrlf):])
+		}
 	}
 
 	if m.settings.requireBucket != "" && bucket != m.settings.requireBucket {
