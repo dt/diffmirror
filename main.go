@@ -31,6 +31,9 @@ type Settings struct {
 	bucketStrLen  int
 	bucketCString int
 
+	requireBucket string
+	excludeBucket string
+
 	printStats     bool
 	graphiteHost   string
 	graphitePrefix string
@@ -78,11 +81,15 @@ func getSettings() *Settings {
 
 	flag.BoolVar(&s.printStats, "stats", true, "print stats to console periodically")
 	flag.StringVar(&s.graphiteHost, "graphite", "", "address of graphite receiver for stats")
+	flag.StringVar(&s.graphitePrefix, "graphite-prefix", "", "prefix for graphite writes")
+
 	flag.StringVar(&s.bucketPath, "bucket-by-path-parts", "", "start:end offsets for path parts (split by /) for bucketing")
 	flag.StringVar(&s.bucketBody, "bucket-by-body-slice", "", "start:end offsets to slice from the body for bucketing")
 	flag.IntVar(&s.bucketCString, "bucket-by-cstring", -1, "offset into body to find a null terminated string for bucketing")
 	flag.IntVar(&s.bucketStrLen, "bucket-by-strlen", -1, "offset into body to find a length int followed by string of length for bucketing")
-	flag.StringVar(&s.graphitePrefix, "graphite-prefix", "", "prefix for graphite writes")
+
+	flag.StringVar(&s.requireBucket, "require-bucket", "", "only mirror requests matching bucket")
+	flag.StringVar(&s.excludeBucket, "exclude-bucket", "", "ignore requests matching bucket")
 
 	flag.BoolVar(&s.ignoreErrors, "ignore-errors", true, "ignore network errors and 5xx responses")
 	flag.BoolVar(&s.compareBodyOnly, "body-only", true, "compare only the body of responses (exclude headers)")
@@ -116,6 +123,10 @@ func getSettings() *Settings {
 
 	if s.bucketCString != -1 {
 		s.setBucketer(&CStringSlicer{s.bucketCString})
+	}
+
+	if s.excludeBucket != "" && s.requireBucket != "" {
+		log.Fatalln("cannot specify both require-bucket and exclude-bucket")
 	}
 
 	if len(flag.Args()) < 3 {

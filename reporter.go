@@ -92,15 +92,12 @@ func (d *DiffReporter) writeDiffs() {
 	}
 }
 
-func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *MirrorResp) {
+func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *MirrorResp, bucket string) {
 	atomic.AddInt64(&d.total, 1)
 
 	var bucketStats *StatNames
-	if d.settings.bucketer != nil {
-		bucket := d.settings.bucketer.Bucket(req, raw)
-		if bucket != "" {
-			bucketStats = d.statNamesFor(bucket)
-		}
+	if bucket != "" {
+		bucketStats = d.statNamesFor(bucket)
 	}
 
 	d.stats.Inc(d.statNames.total)

@@ -63,18 +63,38 @@ func (m *Mirror) unpackAndHandle(raw []byte) {
 	}
 
 	m.stats.Inc("mirror.requests")
-	start := time.Now()
 
 	reqA, _ := http.ReadRequest(bufio.NewReader(bytes.NewReader(raw)))
 	reqB, _ := http.ReadRequest(bufio.NewReader(bytes.NewReader(raw)))
-	m.mirror(reqA, reqB, raw)
 
+	bucket := ""
+	if m.settings.bucketer != nil {
+		bucket = m.settings.bucketer.Bucket(reqA, raw)
+	}
+
+	if m.settings.requireBucket != "" && bucket != m.settings.requireBucket {
+		m.stats.Inc("mirror.ignored-bucket")
+		return
+	}
+
+	if m.settings.excludeBucket != "" && bucket == m.settings.excludeBucket {
+		m.stats.Inc("mirror.ignored-bucket")
+		return
+	}
+
+	if bucket != "" {
+		// TODO(davidt): Memoize concated string to avoid allocations
+		m.stats.Inc("mirror.requests-" + bucket)
+	}
+
+	start := time.Now()
+	m.mirror(reqA, reqB, raw, bucket)
 	end := time.Now()
 
 	m.stats.Timing("mirror.time", end.Sub(start))
 }
 
-func (m *Mirror) mirror(reqA, reqB *http.Request, raw []byte) {
+func (m *Mirror) mirror(reqA, reqB *http.Request, raw []byte, bucket string) {
 	backA := make(chan *MirrorResp)
 	backB := make(chan *MirrorResp)
 
@@ -92,5 +112,5 @@ func (m *Mirror) mirror(reqA, reqB *http.Request, raw []byte) {
 		log.Printf("error mirroring request: %s", resB.err)
 	}
 
-	m.reporter.Compare(reqA, raw, resA, resB)
+	m.reporter.Compare(reqA, raw, resA, resB, bucket)
 }
