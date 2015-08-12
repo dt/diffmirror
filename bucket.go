@@ -55,8 +55,7 @@ func (s *StrLenSlicer) Bucket(r *http.Request, payload []byte) string {
 		return ""
 	}
 
-	var rawSize uint32
-	binary.Read(bytes.NewReader(payload[s.pos:s.pos+4]), binary.BigEndian, &rawSize)
+	rawSize := binary.BigEndian.Uint32(payload[s.pos : s.pos+4])
 
 	size := int(rawSize)
 
@@ -64,7 +63,7 @@ func (s *StrLenSlicer) Bucket(r *http.Request, payload []byte) string {
 
 	end := start + size
 	if end >= len(payload) {
-		end = len(payload) - 1
+		return ""
 	}
 
 	return string(payload[start:end])
