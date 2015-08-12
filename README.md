@@ -24,28 +24,30 @@ If it does not contain a `:`, one will be prepended, so just `8000` works fine t
 - `aliasA=hostA` will be split at the `=` and the first part used as that host's name in stats reporting. 
 If an alias isn't provided, `A` and `B` will be used. 
 
-## Options
+**`--stats=false`**
+Disable printing stats to console periodically.
 
-####  `--body-only` (or `=false`)
-compare only the body of responses (exclude headers) (default: true)
+**`--workers 10`**
+number of worker threads (default 10).
 
+## Comparison Options
+
+####  `--body-only` (`=false`)
+compare only the body of responses (exclude headers). Defaults to true.
+
+####  `--ignore-errors` (`=false`)
+ignore network errors and 5xx responses . Defaults to true.
+
+## Graphite
 ####  `--graphite hostname:port`
-address of graphite receiver for stats
+Enabled graphite reporting, seding to specified receiver.
 
 ####  `--graphite-prefix foo.bar`
 prefix for graphite writes
 
-####  `--ignore-errors` (or `=false`)
-ignore network errors and 5xx responses (default: true)
-
+## Record requests which produce different responses
 ####  `--requestsfile foo.bin`
-filename in which to store requests that generated diffs
-
-####  `--stats`
-print stats to console periodically (default true)
-
-####  `--workers 10`
-number of worker threads (default 10)
+filename in which to store requests that generated diffs.
 
 ## Bucketing
 
@@ -64,6 +66,14 @@ Reads a c-style string, starting at `pos`, until a null byte.
 
 #### String prefixed by length int `--bucket-by-strlen pos`
 Reads an int `l` at `pos` offset and interprets the following `l` bytes as the bucket string.
+
+## Filtering
+
+#### `--exclude-bucket foo`
+Ignore requests that match bucket `foo`
+
+#### `--require-bucket foo`
+Ignore requests that _do not_ match bucket `foo`
 
 # Credits
 diffmirror is developed at [Foursquare](/foursquare) and was heavily inspired by [gor](/buger/gor) and [clever/http-science](/clever/http-science).
