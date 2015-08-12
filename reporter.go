@@ -67,12 +67,11 @@ func NewDiffReporter(s *Settings, stats *Stats) (d *DiffReporter) {
 }
 
 func (d *DiffReporter) statNamesFor(bucket string) *StatNames {
-	found, ok := d.detailedStatNames[bucket]
-	if ok {
-		return found
+	if s, found := d.detailedStatNames[bucket]; found {
+		return s
 	}
 
-	found = &StatNames{
+	s := &StatNames{
 		total: "diffing." + bucket + ".total",
 		match: "diffing." + bucket + ".match",
 		diff:  "diffing." + bucket + ".diff",
@@ -81,8 +80,8 @@ func (d *DiffReporter) statNamesFor(bucket string) *StatNames {
 		rttA:  "diffing." + bucket + ".rtt." + d.settings.nameA,
 		rttB:  "diffing." + bucket + ".rtt." + d.settings.nameB,
 	}
-	d.detailedStatNames[bucket] = found
-	return found
+	d.detailedStatNames[bucket] = s
+	return s
 }
 
 func (d *DiffReporter) writeDiffs() {
