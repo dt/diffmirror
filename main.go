@@ -25,15 +25,24 @@ type Settings struct {
 	ignoreErrors    bool
 	compareBodyOnly bool
 
-	bucketer   Bucketer
-	bucketPath string
-	bucketBody string
+	bucketer      Bucketer
+	bucketPath    string
+	bucketBody    string
+	bucketStrLen  int
+	bucketCString int
 
 	printStats     bool
 	graphiteHost   string
 	graphitePrefix string
 
 	trackWork bool
+}
+
+func (s *Settings) setBucketer(b Bucketer) {
+	if s.bucketer != nil {
+		log.Fatal("Cannot specify more than one bucketing function")
+	}
+	s.bucketer = b
 }
 
 func extractAlias(s, defaultValue string) (string, string) {
@@ -71,6 +80,8 @@ func getSettings() *Settings {
 	flag.StringVar(&s.graphiteHost, "graphite", "", "address of graphite receiver for stats")
 	flag.StringVar(&s.bucketPath, "bucket-by-path-parts", "", "start:end offsets for path parts (split by /) for bucketing")
 	flag.StringVar(&s.bucketBody, "bucket-by-body-slice", "", "start:end offsets to slice from the body for bucketing")
+	flag.IntVar(&s.bucketCString, "bucket-by-cstring", -1, "offset into body to find a null terminated string for bucketing")
+	flag.IntVar(&s.bucketStrLen, "bucket-by-strlen", -1, "offset into body to find a length int followed by string of length for bucketing")
 	flag.StringVar(&s.graphitePrefix, "graphite-prefix", "", "prefix for graphite writes")
 
 	flag.BoolVar(&s.ignoreErrors, "ignore-errors", true, "ignore network errors and 5xx responses")
@@ -83,16 +94,12 @@ func getSettings() *Settings {
 
 	flag.Parse()
 
-	if s.bucketBody != "" && s.bucketPath != "" {
-		log.Fatalln("only one bucketing may be used")
-	}
-
 	if s.bucketBody != "" {
 		start, end, err := intPair(s.bucketBody)
 		if err != nil {
 			log.Fatalln(err)
 		}
-		s.bucketer = &BodySlicer{start, end}
+		s.setBucketer(&RangeSlicer{start, end})
 	}
 
 	if s.bucketPath != "" {
@@ -100,7 +107,15 @@ func getSettings() *Settings {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		s.bucketer = &PathSlicer{start, end}
+		s.setBucketer(&PathSlicer{start, end})
+	}
+
+	if s.bucketStrLen != -1 {
+		s.setBucketer(&StrLenSlicer{s.bucketStrLen})
+	}
+
+	if s.bucketCString != -1 {
+		s.setBucketer(&CStringSlicer{s.bucketCString})
 	}
 
 	if len(flag.Args()) < 3 {
