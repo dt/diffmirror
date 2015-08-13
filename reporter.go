@@ -57,6 +57,8 @@ func NewDiffReporter(s *Settings, stats *Stats) (d *DiffReporter) {
 		rttB:  "diffing.rtt." + s.nameB,
 	}
 
+	r.detailedStatNames = make(map[string]*StatNames)
+
 	if s.requestsFile != "" {
 		r.outQueue = make(chan []byte, 100)
 		r.requestsWriter = requestfiles.NewFileOutput(s.requestsFile)
