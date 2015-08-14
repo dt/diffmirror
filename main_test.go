@@ -90,3 +90,20 @@ func TestBodyDiff(t *testing.T) {
 	expectStat(t, s, "diffing.match", 0)
 	expectStat(t, s, "diffing.diff", 1)
 }
+
+func TestBodyOOOFailDiff(t *testing.T) {
+	m := mockSettings(true, false)
+	s := runOne(t, m, "headerA", "headerB", "body", "ybod")
+	expectStat(t, s, "diffing.total", 1)
+	expectStat(t, s, "diffing.match", 0)
+	expectStat(t, s, "diffing.diff", 1)
+}
+
+func TestBodyOOODiff(t *testing.T) {
+	m := mockSettings(true, false)
+	m.ignoreBodyOrder = true
+	s := runOne(t, m, "headerA", "headerB", "body", "ybod")
+	expectStat(t, s, "diffing.total", 1)
+	expectStat(t, s, "diffing.match", 1)
+	expectStat(t, s, "diffing.diff", 0)
+}

@@ -24,6 +24,7 @@ type Settings struct {
 
 	ignoreErrors    bool
 	compareBodyOnly bool
+	ignoreBodyOrder bool
 
 	bucketer      Bucketer
 	bucketPath    string
@@ -93,6 +94,7 @@ func getSettings() *Settings {
 
 	flag.BoolVar(&s.ignoreErrors, "ignore-errors", true, "ignore network errors and 5xx responses")
 	flag.BoolVar(&s.compareBodyOnly, "body-only", true, "compare only the body of responses (exclude headers)")
+	flag.BoolVar(&s.ignoreBodyOrder, "ignore-content-order", false, "comparison of body only confirms that they contain the same bytes, but not that the bytes appear in the same order. don't ask.")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "\nUsage: %s [options] [aliasA=]hostA [aliasB=]hostB\n\n", os.Args[0])

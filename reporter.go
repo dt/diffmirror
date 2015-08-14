@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -139,7 +140,24 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *Mirror
 		return
 	}
 
-	if !errA && !errB && resA.payload == resB.payload {
+	same := (!errA && !errB) && len(resA.payload) == len(resB.payload)
+
+	if same {
+		if d.settings.ignoreBodyOrder {
+			normA := make([]byte, len(resA.payload))
+			copy(normA, resA.payload)
+
+			normB := make([]byte, len(resB.payload))
+			copy(normB, resB.payload)
+			sort.Sort(sortBytes(normA))
+			sort.Sort(sortBytes(normB))
+			same = bytes.Equal(normA, normB)
+		} else {
+			same = resA.payload == resB.payload
+		}
+	}
+
+	if same {
 		d.stats.Inc(d.statNames.match)
 		if bucketStats != nil {
 			d.stats.Inc(bucketStats.match)
