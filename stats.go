@@ -43,7 +43,8 @@ func NewStats(sendToConsole bool, sendToGraphite, graphitePrefix string) *Stats 
 	if sendToGraphite != "" {
 		log.Println("Stats reporting to graphite: ", sendToGraphite)
 		addr, _ := net.ResolveTCPAddr("tcp", sendToGraphite)
-		go graphite.Graphite(s.registry, time.Second*5, graphitePrefix, addr)
+
+		go s.graphiteSender(time.Second*5, addr, graphitePrefix)
 	}
 
 	if sendToConsole {
@@ -51,4 +52,20 @@ func NewStats(sendToConsole bool, sendToGraphite, graphitePrefix string) *Stats 
 		go metrics.Log(s.registry, time.Minute, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 	}
 	return s
+}
+
+func (s *Stats) graphiteSender(freq time.Duration, addr *net.TCPAddr, prefix string) {
+	cfg := graphite.GraphiteConfig{
+		Addr:          addr,
+		Registry:      s.registry,
+		FlushInterval: 0,
+		DurationUnit:  time.Millisecond,
+		Prefix:        prefix,
+		Percentiles:   []float64{0.5, 0.75, 0.95, 0.99, 0.999},
+	}
+
+	for _ = range time.Tick(freq) {
+		graphite.GraphiteOnce(cfg)
+		s.registry.UnregisterAll() // Hack to get ostrich-like flush to 0.
+	}
 }
