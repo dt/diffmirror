@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"io"
 	"log"
@@ -183,12 +184,22 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *Mirror
 	hexA := make([]byte, len(snipA)*2)
 	hexB := make([]byte, len(snipB)*2)
 
+	body := ""
+
+	crlfcrlf := []byte("\r\n\r\n")
+	cut := bytes.Index(raw, crlfcrlf)
+	if cut > -1 {
+		bodyBytes := raw[cut+len(crlfcrlf):]
+		body = hex.EncodeToString(bodyBytes)
+	}
 	hex.Encode(hexA, snipA)
 	hex.Encode(hexB, snipB)
 
 	log.Printf(
-		`[DIFF %d/%d] %s %s [status: %d v %d size: %d v %d (%d) time: %dms vs %dms (%d)]
+		`[DIFF %s%d/%d] %s %s [status: %d v %d size: %d v %d (%d) time: %dms vs %dms (%d)]
 		bytes %d - %d
+		######## req ########
+		%s
 		######## %s ########
 		%s
 		--------------------
@@ -199,6 +210,7 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *Mirror
 		%s
 		####################
 		`,
+		bucket,
 		atomic.LoadInt64(&d.diff),
 		atomic.LoadInt64(&d.total),
 		req.Method,
@@ -208,6 +220,7 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *Mirror
 		ms(resA.rtt), ms(resB.rtt), ms(resA.rtt-resB.rtt),
 		start,
 		end,
+		body,
 		d.settings.nameA,
 		string(snipA),
 		hexA,
