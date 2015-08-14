@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"io"
 	"log"
 	"net/http"
@@ -176,12 +177,25 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *Mirror
 		end = limit
 	}
 
+	snipA := []byte(resA.payload[start:end])
+	snipB := []byte(resB.payload[start:end])
+
+	hexA := make([]byte, len(snipA)*2)
+	hexB := make([]byte, len(snipB)*2)
+
+	hex.Encode(hexA, snipA)
+	hex.Encode(hexB, snipB)
+
 	log.Printf(
 		`[DIFF %d/%d] %s %s [status: %d v %d size: %d v %d (%d) time: %dms vs %dms (%d)]
 		bytes %d - %d
 		######## %s ########
 		%s
+		--------------------
+		%s
 		######## %s ########
+		%s
+		--------------------
 		%s
 		####################
 		`,
@@ -195,9 +209,11 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *Mirror
 		start,
 		end,
 		d.settings.nameA,
-		string(resA.payload[start:end]),
+		string(snipA),
+		hexA,
 		d.settings.nameB,
-		string(resB.payload[start:end]),
+		string(snipB),
+		hexB,
 	)
 
 	if d.requestsWriter != nil {
