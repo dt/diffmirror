@@ -44,7 +44,9 @@ func runOne(t *testing.T, s *Settings, headA, headB, bodyA, bodyB string) *Stats
 	diffmirror := httptest.NewServer(MirrorServer{mirror: m})
 	defer diffmirror.Close()
 
-	log.SetOutput(ioutil.Discard)
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+	}
 
 	_, err := http.Get(diffmirror.URL)
 	if err != nil {
@@ -93,17 +95,36 @@ func TestBodyDiff(t *testing.T) {
 
 func TestBodyOOOFailDiff(t *testing.T) {
 	m := mockSettings(true, false)
-	s := runOne(t, m, "headerA", "headerB", "body", "ybod")
-	expectStat(t, s, "diffing.total", 1)
-	expectStat(t, s, "diffing.match", 0)
-	expectStat(t, s, "diffing.diff", 1)
+
+	a := runOne(t, m, "headerA", "headerB", "body", "ybod")
+	expectStat(t, a, "diffing.total", 1)
+	expectStat(t, a, "diffing.match", 0)
+	expectStat(t, a, "diffing.diff", 1)
+
+	m.ignoreBodyOrder = true
+	b := runOne(t, m, "headerA", "headerB", "body", "ybod")
+	expectStat(t, b, "diffing.total", 1)
+	expectStat(t, b, "diffing.match", 1)
+	expectStat(t, b, "diffing.diff", 0)
 }
 
-func TestBodyOOODiff(t *testing.T) {
+func TestCompCmd(t *testing.T) {
 	m := mockSettings(true, false)
-	m.ignoreBodyOrder = true
-	s := runOne(t, m, "headerA", "headerB", "body", "ybod")
-	expectStat(t, s, "diffing.total", 1)
-	expectStat(t, s, "diffing.match", 1)
-	expectStat(t, s, "diffing.diff", 0)
+
+	a := runOne(t, m, "headerA", "headerB", "bodyXbody", "bodyYbody")
+	expectStat(t, a, "diffing.total", 1)
+	expectStat(t, a, "diffing.match", 0)
+	expectStat(t, a, "diffing.diff", 1)
+
+	m.compareCmd = "testing/silly_diff.py"
+	b := runOne(t, m, "headerA", "headerB", "bodyXbody", "bodyYbody")
+	expectStat(t, b, "diffing.total", 1)
+	expectStat(t, b, "diffing.match", 1)
+	expectStat(t, b, "diffing.diff", 0)
+
+	c := runOne(t, m, "headerA", "headerB", "bodyBbody", "bodyYbody")
+	expectStat(t, c, "diffing.total", 1)
+	expectStat(t, c, "diffing.match", 0)
+	expectStat(t, c, "diffing.diff", 1)
+
 }
