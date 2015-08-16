@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os/exec"
 	"sort"
 	"sync/atomic"
 	"time"
@@ -154,6 +155,15 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *Mirror
 			same = bytes.Equal(normA, normB)
 		} else {
 			same = resA.payload == resB.payload
+			if !same && d.settings.compareCmd != "" {
+				cmd := exec.Command(d.settings.compareCmd, hex.EncodeToString([]byte(resA.payload)), hex.EncodeToString([]byte(resB.payload)))
+				output, ret := cmd.CombinedOutput()
+				if ret != nil {
+					log.Printf("Compare via %s: %v:\n%s\n", d.settings.compareCmd, ret, output)
+				} else {
+					same = true
+				}
+			}
 		}
 	}
 
