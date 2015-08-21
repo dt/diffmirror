@@ -121,7 +121,7 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *Mirror
 	} else {
 		d.stats.Timing(d.statNames.rttA, resA.rtt)
 		if bucketStats != nil {
-			d.stats.Timing(bucketStats.rttA, resB.rtt)
+			d.stats.Timing(bucketStats.rttA, resA.rtt)
 		}
 	}
 
