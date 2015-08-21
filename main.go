@@ -20,6 +20,8 @@ type Settings struct {
 	hostB string
 	nameB string
 
+	skipDiff bool
+
 	requestsFile string
 
 	ignoreErrors    bool
@@ -76,6 +78,8 @@ func intPair(s string) (int, int, error) {
 
 func getSettings() *Settings {
 	s := new(Settings)
+
+	flag.BoolVar(&s.skipDiff, "skip-diff", false, "skip diffing and record stats only")
 
 	flag.IntVar(&s.workers, "workers", 10, "number of worker threads")
 

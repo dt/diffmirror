@@ -137,6 +137,10 @@ func (d *DiffReporter) Compare(req *http.Request, raw []byte, resA, resB *Mirror
 		}
 	}
 
+	if d.settings.skipDiff {
+		return
+	}
+
 	if (errA && errB) || (d.settings.ignoreErrors && (errA || errB)) {
 		return
 	}
