@@ -44,7 +44,7 @@ func NewStats(sendToConsole bool, sendToGraphite, graphitePrefix string) *Stats 
 		log.Println("Stats reporting to graphite: ", sendToGraphite)
 		addr, _ := net.ResolveTCPAddr("tcp", sendToGraphite)
 
-		go s.graphiteSender(time.Second*5, addr, graphitePrefix)
+		go s.graphiteSender(time.Second*15, addr, graphitePrefix)
 	}
 
 	if sendToConsole {
