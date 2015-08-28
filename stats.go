@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cyberdelia/go-metrics-graphite"
+	"github.com/dt/go-metrics-graphite"
 	"github.com/rcrowley/go-metrics"
 )
 
@@ -21,7 +21,8 @@ func (t *Stats) Gauge(name string, value int) {
 }
 
 func (t *Stats) Inc(stat string) {
-	metrics.GetOrRegisterCounter(stat, t.registry).Inc(1)
+	metrics.GetOrRegisterCounter(stat+"-total", t.registry).Inc(1)
+	metrics.GetOrRegisterMeter(stat, t.registry).Mark(1)
 }
 
 func (t *Stats) GetCount(stat string) int64 {
@@ -44,7 +45,16 @@ func NewStats(sendToConsole bool, sendToGraphite, graphitePrefix string) *Stats 
 		log.Println("Stats reporting to graphite: ", sendToGraphite)
 		addr, _ := net.ResolveTCPAddr("tcp", sendToGraphite)
 
-		go s.graphiteSender(time.Second*15, addr, graphitePrefix)
+		cfg := graphite.GraphiteConfig{
+			Addr:          addr,
+			Registry:      s.registry,
+			FlushInterval: 15 * time.Second,
+			DurationUnit:  time.Millisecond,
+			Prefix:        graphitePrefix,
+			Percentiles:   []float64{0.5, 0.75, 0.9, 0.95, 0.99, 0.999},
+		}
+
+		go graphite.GraphiteWithConfig(cfg)
 	}
 
 	if sendToConsole {
@@ -52,20 +62,4 @@ func NewStats(sendToConsole bool, sendToGraphite, graphitePrefix string) *Stats 
 		go metrics.Log(s.registry, time.Minute, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 	}
 	return s
-}
-
-func (s *Stats) graphiteSender(freq time.Duration, addr *net.TCPAddr, prefix string) {
-	cfg := graphite.GraphiteConfig{
-		Addr:          addr,
-		Registry:      s.registry,
-		FlushInterval: 0,
-		DurationUnit:  time.Millisecond,
-		Prefix:        prefix,
-		Percentiles:   []float64{0.5, 0.75, 0.95, 0.99, 0.999},
-	}
-
-	for _ = range time.Tick(freq) {
-		graphite.GraphiteOnce(cfg)
-		s.registry.UnregisterAll() // Hack to get ostrich-like flush to 0.
-	}
 }
